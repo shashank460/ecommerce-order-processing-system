@@ -45,12 +45,12 @@ services:
     depends_on: [postgres, kafka]
   payment:
     build: ./services/payment
-    environment: ["KAFKA_BROKERS=${KAFKA_BROKERS}", "PAYMENT_FAILURE_RATE=0.1"]
-    depends_on: [kafka]
+    environment: ["POSTGRES_URL=${POSTGRES_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}", "PAYMENT_FAILURE_RATE=0.1"]
+    depends_on: [postgres, kafka]
   notification:
     build: ./services/notification
-    environment: ["KAFKA_BROKERS=${KAFKA_BROKERS}"]
-    depends_on: [kafka]
+    environment: ["POSTGRES_URL=${POSTGRES_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}"]
+    depends_on: [postgres, kafka]
   prometheus:
     image: prom/prometheus:v3.1.0
     volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
