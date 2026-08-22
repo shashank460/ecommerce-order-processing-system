@@ -1,17 +1,7 @@
-import express from 'express';
-import jwt from 'jsonwebtoken';
-import { collectDefaultMetrics, Counter, Registry } from 'prom-client';
-
-const app = express(); app.use(express.json());
-const secret = process.env.JWT_SECRET || 'dev-secret';
-const registry = new Registry(); collectDefaultMetrics({ register: registry });
-const requests = new Counter({ name:'gateway_requests_total', help:'Gateway requests', registers:[registry] });
-app.use((req,res,next)=>{ requests.inc(); res.setHeader('x-request-id', req.header('x-request-id') || crypto.randomUUID()); next(); });
-app.get('/health', (_,res)=>res.json({status:'ok',service:'gateway'}));
-app.get('/metrics', async (_,res)=>{res.setHeader('content-type',registry.contentType);res.end(await registry.metrics());});
-app.post('/auth/token',(req,res)=>{ const userId=String(req.body?.userId||'demo-user'); res.json({token:jwt.sign({sub:userId,role:'customer'},secret,{expiresIn:'1h'})}); });
-function auth(req:any,res:any,next:any){ const h=req.header('authorization'); if(!h?.startsWith('Bearer ')) return res.status(401).json({error:'missing bearer token'}); try{req.user=jwt.verify(h.slice(7),secret);next();}catch{return res.status(401).json({error:'invalid token'});} }
-async function proxy(req:any,res:any,url:string){ const headers:any={'content-type':'application/json','x-request-id':res.getHeader('x-request-id')}; const r=await fetch(url+req.originalUrl,{method:req.method,headers,body:['GET','HEAD'].includes(req.method)?undefined:JSON.stringify(req.body)}); const text=await r.text(); res.status(r.status).type(r.headers.get('content-type')||'application/json').send(text); }
-app.use('/products', (req,res)=>proxy(req,res,process.env.PRODUCT_URL||'http://localhost:3001'));
-app.use('/orders', auth, (req,res)=>proxy(req,res,process.env.ORDER_URL||'http://localhost:3002'));
-app.listen(Number(process.env.PORT||3000),()=>console.log('gateway listening'));
+import express from 'express';import jwt from 'jsonwebtoken';import {randomUUID} from 'node:crypto';import {collectDefaultMetrics,Counter,Registry} from 'prom-client';
+const app=express();app.use(express.json());const secret=process.env.JWT_SECRET||'dev-secret';const registry=new Registry();collectDefaultMetrics({register:registry});const requests=new Counter({name:'gateway_requests_total',help:'Gateway requests',registers:[registry]});
+app.use((req,res,next)=>{requests.inc();res.setHeader('x-request-id',req.header('x-request-id')||randomUUID());next()});app.get('/health',(_,res)=>res.json({status:'ok',service:'gateway'}));app.get('/metrics',async(_,res)=>{res.setHeader('content-type',registry.contentType);res.end(await registry.metrics())});
+app.post('/auth/token',(req,res)=>{const userId=String(req.body?.userId||'demo-user');res.json({token:jwt.sign({sub:userId,role:'customer'},secret,{expiresIn:'1h'})})});
+function auth(req:any,res:any,next:any){const h=req.header('authorization');if(!h?.startsWith('Bearer '))return res.status(401).json({error:'missing bearer token'});try{req.user=jwt.verify(h.slice(7),secret);next()}catch{return res.status(401).json({error:'invalid token'})}}
+async function proxy(req:any,res:any,url:string){try{const headers:any={'content-type':'application/json','x-request-id':res.getHeader('x-request-id')};const r=await fetch(url+req.originalUrl,{method:req.method,headers,body:['GET','HEAD'].includes(req.method)?undefined:JSON.stringify(req.body)});const text=await r.text();res.status(r.status).type(r.headers.get('content-type')||'application/json').send(text)}catch{res.status(503).json({error:'upstream unavailable'})}}
+app.use('/products',(req,res)=>proxy(req,res,process.env.PRODUCT_URL||'http://localhost:3001'));app.use('/orders',auth,(req,res)=>proxy(req,res,process.env.ORDER_URL||'http://localhost:3002'));app.listen(Number(process.env.PORT||3000),()=>console.log('gateway listening'));
