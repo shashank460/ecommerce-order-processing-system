@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecommerce-config
+  namespace: ecommerce
+data:
+  POSTGRES_URL: postgres://app:app@postgres:5432/ecommerce
+  REDIS_URL: redis://redis:6379
+  KAFKA_BROKERS: kafka:9092
+  INVENTORY_GRPC: inventory:50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: gateway, namespace: ecommerce}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: gateway}}
+  template:
+    metadata: {labels: {app: gateway}}
+    spec:
+      containers:
+        - name: gateway
+          image: ghcr.io/shashank460/ecommerce-gateway:latest
+          ports: [{containerPort: 3000}]
+          env:
+            - {name: JWT_SECRET, valueFrom: {secretKeyRef: {name: ecommerce-secrets, key: JWT_SECRET}}}
+            - {name: PRODUCT_URL, value: http://product:3001}
+            - {name: ORDER_URL, value: http://order:3002}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: gateway, namespace: ecommerce}
+spec:
+  selector: {app: gateway}
+  ports: [{port: 3000, targetPort: 3000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: product, namespace: ecommerce}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: product}}
+  template:
+    metadata: {labels: {app: product}}
+    spec:
+      containers:
+        - name: product
+          image: ghcr.io/shashank460/ecommerce-product:latest
+          ports: [{containerPort: 3001}]
+          envFrom: [{configMapRef: {name: ecommerce-config}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: product, namespace: ecommerce}
+spec:
+  selector: {app: product}
+  ports: [{port: 3001, targetPort: 3001}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: order, namespace: ecommerce}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: order}}
+  template:
+    metadata: {labels: {app: order}}
+    spec:
+      containers:
+        - name: order
+          image: ghcr.io/shashank460/ecommerce-order:latest
+          ports: [{containerPort: 3002}]
+          envFrom: [{configMapRef: {name: ecommerce-config}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: order, namespace: ecommerce}
+spec:
+  selector: {app: order}
+  ports: [{port: 3002, targetPort: 3002}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: inventory, namespace: ecommerce}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: inventory}}
+  template:
+    metadata: {labels: {app: inventory}}
+    spec:
+      containers:
+        - name: inventory
+          image: ghcr.io/shashank460/ecommerce-inventory:latest
+          ports: [{containerPort: 50051}]
+          envFrom: [{configMapRef: {name: ecommerce-config}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: inventory, namespace: ecommerce}
+spec:
+  selector: {app: inventory}
+  ports: [{port: 50051, targetPort: 50051}]
