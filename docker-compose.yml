@@ -45,7 +45,7 @@ services:
     depends_on: [postgres, kafka]
   payment:
     build: ./services/payment
-    environment: ["KAFKA_BROKERS=${KAFKA_BROKERS}"]
+    environment: ["KAFKA_BROKERS=${KAFKA_BROKERS}", "PAYMENT_FAILURE_RATE=0.1"]
     depends_on: [kafka]
   notification:
     build: ./services/notification
