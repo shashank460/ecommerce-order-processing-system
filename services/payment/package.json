@@ -1,1 +1,1 @@
-{"name":"payment","type":"module","scripts":{"start":"tsx src/index.ts"},"dependencies":{"kafkajs":"^2.2.4"}}
+{"name":"payment","type":"module","scripts":{"start":"tsx src/index.ts"},"dependencies":{"kafkajs":"^2.2.4","pg":"^8.13.1"}}
