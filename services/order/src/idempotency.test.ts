@@ -1,0 +1,2 @@
+import {describe,it,expect} from 'vitest';import {validateIdempotencyKey} from './idempotency.js';
+describe('idempotency key validation',()=>{it('accepts a valid key',()=>expect(validateIdempotencyKey('order-12345')).toBe('order-12345'));it('rejects missing keys',()=>expect(()=>validateIdempotencyKey(undefined)).toThrow());it('rejects very short keys',()=>expect(()=>validateIdempotencyKey('x')).toThrow());});
