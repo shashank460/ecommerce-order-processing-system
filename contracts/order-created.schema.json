@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OrderCreated v1",
+  "type": "object",
+  "required": ["eventId", "eventType", "version", "occurredAt", "correlationId", "payload"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "eventType": {"const": "OrderCreated"},
+    "version": {"const": 1},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "correlationId": {"type": "string"},
+    "payload": {"type": "object", "required": ["orderId", "userId", "items"], "properties": {"orderId": {"type": "string"}, "userId": {"type": "string"}, "items": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["productId", "quantity"], "properties": {"productId": {"type": "integer"}, "quantity": {"type": "integer", "minimum": 1}}, "additionalProperties": false}}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}
