@@ -1,0 +1,1 @@
+{"name":"inventory","type":"module","scripts":{"start":"tsx src/index.ts"},"dependencies":{"pg":"^8.13.1","kafkajs":"^2.2.4","@grpc/grpc-js":"^1.12.4","@grpc/proto-loader":"^0.7.13"}}
