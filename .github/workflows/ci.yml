@@ -12,6 +12,13 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 20, cache: npm}
       - run: npm install
-      - run: npm test
+      - name: Run tests with coverage
+        run: npm run coverage
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: '**/coverage/**'
+          if-no-files-found: warn
       - name: Validate Compose
         run: docker compose config
