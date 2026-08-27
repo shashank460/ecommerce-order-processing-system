@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 export type EventType =
   | 'OrderCreated'
+  | 'ProductCreated'
   | 'InventoryReserved'
   | 'InventoryReleased'
   | 'InventoryFailed'
@@ -19,30 +20,17 @@ export interface DomainEvent<T = Record<string, unknown>> {
   payload: T;
 }
 
-export interface OrderCreatedPayload {
-  orderId: string;
-  userId: string;
-  items: { productId: number; quantity: number }[];
-}
-
+export interface OrderCreatedPayload { orderId: string; userId: string; items: { productId: number; quantity: number }[]; }
+export interface ProductCreatedPayload { productId: number; stock: number; }
 export interface InventoryPayload extends OrderCreatedPayload {}
 export interface PaymentPayload extends OrderCreatedPayload {}
 
 export function parseEvent<T = Record<string, unknown>>(value: string): DomainEvent<T> {
   const event = JSON.parse(value) as DomainEvent<T>;
-  if (!event.eventId || !event.eventType || event.version !== 1 || !event.occurredAt || !event.correlationId || !event.payload) {
-    throw new Error('Invalid event contract');
-  }
+  if (!event.eventId || !event.eventType || event.version !== 1 || !event.occurredAt || !event.correlationId || !event.payload) throw new Error('Invalid event contract');
   return event;
 }
 
 export function createEvent<T>(eventType: EventType, payload: T, correlationId: string): DomainEvent<T> {
-  return {
-    eventId: randomUUID(),
-    eventType,
-    version: 1,
-    occurredAt: new Date().toISOString(),
-    correlationId,
-    payload,
-  };
+  return { eventId: randomUUID(), eventType, version: 1, occurredAt: new Date().toISOString(), correlationId, payload };
 }
