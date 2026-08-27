@@ -27,28 +27,28 @@ services:
       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
   gateway:
-    build: ./services/gateway
+    build: { context: ., dockerfile: services/gateway/Dockerfile }
     environment: ["PORT=3000", "JWT_SECRET=${JWT_SECRET}", "PRODUCT_URL=http://product:3001", "ORDER_URL=http://order:3002"]
     ports: ["3000:3000"]
     depends_on: [product, order]
   product:
-    build: ./services/product
-    environment: ["PORT=3001", "POSTGRES_URL=${POSTGRES_URL}", "REDIS_URL=${REDIS_URL}"]
-    depends_on: [postgres, redis]
+    build: { context: ., dockerfile: services/product/Dockerfile }
+    environment: ["PORT=3001", "POSTGRES_URL=${POSTGRES_URL}", "REDIS_URL=${REDIS_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}"]
+    depends_on: [postgres, redis, kafka]
   order:
-    build: ./services/order
+    build: { context: ., dockerfile: services/order/Dockerfile }
     environment: ["PORT=3002", "POSTGRES_URL=${POSTGRES_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}", "INVENTORY_GRPC=inventory:50051"]
     depends_on: [postgres, kafka, inventory]
   inventory:
-    build: ./services/inventory
+    build: { context: ., dockerfile: services/inventory/Dockerfile }
     environment: ["POSTGRES_URL=${POSTGRES_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}", "GRPC_PORT=50051"]
     depends_on: [postgres, kafka]
   payment:
-    build: ./services/payment
+    build: { context: ., dockerfile: services/payment/Dockerfile }
     environment: ["POSTGRES_URL=${POSTGRES_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}", "PAYMENT_FAILURE_RATE=0.1"]
     depends_on: [postgres, kafka]
   notification:
-    build: ./services/notification
+    build: { context: ., dockerfile: services/notification/Dockerfile }
     environment: ["POSTGRES_URL=${POSTGRES_URL}", "KAFKA_BROKERS=${KAFKA_BROKERS}"]
     depends_on: [postgres, kafka]
   prometheus:
