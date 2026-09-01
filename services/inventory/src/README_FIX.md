@@ -1,1 +1,0 @@
-Inventory now uses the shared domain-event contract, ProductCreated synchronization, and processed-event deduplication. See src/index.ts.
