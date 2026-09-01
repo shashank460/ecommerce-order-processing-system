@@ -45,12 +45,9 @@ await consumer.run({ eachMessage: async ({ topic, partition, message }) => {
     await producer.send({ topic: 'orders', messages: [{ key: payload.orderId, value: JSON.stringify({ eventId: randomUUID(), eventType: nextType, version: 1, occurredAt: new Date().toISOString(), correlationId: event.correlationId || payload.orderId, payload }) }] });
   } catch (error) {
     if (eventId) await db.query('DELETE FROM processed_events WHERE event_id=$1', [eventId]);
-    const retries = Number(message.headers?.['x-retry-count']?.toString() || 0);
-    const destination = retries < maxRetries ? retryTopic : dlqTopic;
-    await producer.send({ topic: destination, messages: [{
-      key: message.key?.toString(),
-      headers: { 'x-retry-count': String(retries + 1) },
-      value: JSON.stringify({ failedAt: new Date().toISOString(), sourceTopic: topic, partition, offset: message.offset, retryCount: retries + 1, error: error instanceof Error ? error.message : String(error), payload: message.value.toString() })
-    }] });
+    const retries = Number(message.headers?.['x-retry-count']?.toString() || 0) + 1;
+    const destination = retries <= maxRetries ? retryTopic : dlqTopic;
+    const value = destination === retryTopic ? message.value.toString() : JSON.stringify({ failedAt: new Date().toISOString(), sourceTopic: topic, partition, offset: message.offset, retryCount: retries, error: error instanceof Error ? error.message : String(error), payload: message.value.toString() });
+    await producer.send({ topic: destination, messages: [{ key: message.key?.toString(), headers: { 'x-retry-count': String(retries) }, value }] });
   }
 });
