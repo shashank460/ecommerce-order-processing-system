@@ -1,0 +1,16 @@
+- op: add
+  path: /spec/template/spec/containers/0/readinessProbe
+  value:
+    httpGet: {path: /health, port: 3000}
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+- op: add
+  path: /spec/template/spec/containers/0/livenessProbe
+  value:
+    httpGet: {path: /health, port: 3000}
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 2
+    failureThreshold: 3
