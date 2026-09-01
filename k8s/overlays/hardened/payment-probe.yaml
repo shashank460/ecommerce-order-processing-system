@@ -1,0 +1,12 @@
+- op: add
+  path: /spec/template/spec/containers/0/readinessProbe
+  value:
+    httpGet: {path: /health/ready, port: 8080}
+    initialDelaySeconds: 10
+    periodSeconds: 10
+- op: add
+  path: /spec/template/spec/containers/0/livenessProbe
+  value:
+    httpGet: {path: /health/live, port: 8080}
+    initialDelaySeconds: 15
+    periodSeconds: 20
