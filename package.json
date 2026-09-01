@@ -12,6 +12,7 @@
     "k8s:validate": "kubectl kustomize k8s/overlays/hardened >/dev/null"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "typescript": "^5.6.3",
     "tsx": "^4.19.2",
     "vitest": "^2.1.8",
