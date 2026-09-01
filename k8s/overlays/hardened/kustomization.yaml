@@ -38,3 +38,15 @@ patches:
       version: v1
       kind: Deployment
       name: inventory
+  - path: payment-probe.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: payment
+  - path: notification-probe.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: notification
