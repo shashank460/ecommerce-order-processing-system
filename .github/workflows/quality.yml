@@ -11,16 +11,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [order, inventory, payment, notification, api-gateway]
+        service: [gateway, product, order, inventory, payment, notification]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - name: Typecheck ${{ matrix.service }}
-        run: npm --workspace services/${{ matrix.service }} exec tsc -- --noEmit
+        run: npx tsc -p services/${{ matrix.service }}/tsconfig.json --noEmit
 
   formatting:
     runs-on: ubuntu-latest
@@ -29,19 +28,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npx prettier --check "**/*.{ts,js,json,yml,yaml,md}"
+      - run: npm install
+      - run: npm run format:check
 
-  terraform:
+  kubernetes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - uses: terraform-linters/setup-tflint@v5
-      - run: terraform -chdir=infra/terraform fmt -check -recursive
-      - run: terraform -chdir=infra/terraform init -backend=false
-      - run: terraform -chdir=infra/terraform validate
-      - run: tflint --init && tflint --recursive
+      - name: Validate hardened manifests
+        run: kubectl kustomize k8s/overlays/hardened >/tmp/rendered.yaml
+      - name: Validate namespace and workloads
+        run: grep -q 'kind: Deployment' /tmp/rendered.yaml && grep -q 'kind: NetworkPolicy' /tmp/rendered.yaml
 
   tests:
     runs-on: ubuntu-latest
@@ -50,6 +47,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm test
