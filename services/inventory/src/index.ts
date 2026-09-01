@@ -3,6 +3,7 @@ import { Kafka } from 'kafkajs';
 import grpc from '@grpc/grpc-js';
 import protoLoader from '@grpc/proto-loader';
 import path from 'node:path';
+import { createServer } from 'node:http';
 
 const { Pool } = pg;
 const db = new Pool({ connectionString: process.env.POSTGRES_URL });
@@ -18,6 +19,15 @@ await producer.connect();
 await consumer.connect();
 await consumer.subscribe({ topic: 'orders', fromBeginning: true });
 
+createServer(async (req, res) => {
+  if (req.url === '/health/live') { res.writeHead(200); return res.end(JSON.stringify({ status: 'ok' })); }
+  if (req.url === '/health/ready') {
+    try { await db.query('SELECT 1'); res.writeHead(200); return res.end(JSON.stringify({ status: 'ready' })); }
+    catch { res.writeHead(503); return res.end(JSON.stringify({ status: 'not-ready' })); }
+  }
+  res.writeHead(404); res.end();
+}).listen(Number(process.env.HEALTH_PORT || 8080));
+
 const def = protoLoader.loadSync(path.resolve(process.cwd(), 'proto/inventory.proto'));
 const service = (grpc.loadPackageDefinition(def) as any).inventory.Inventory.service;
 const server = new grpc.Server();
@@ -26,9 +36,7 @@ server.addService(service, {
     try {
       const q = await db.query('SELECT stock FROM inventory WHERE product_id=$1', [call.request.productId]);
       cb(null, { stock: q.rows[0]?.stock ?? 0 });
-    } catch (error) {
-      cb(error);
-    }
+    } catch (error) { cb(error); }
   }
 });
 server.bindAsync(`0.0.0.0:${process.env.GRPC_PORT || 50051}`, grpc.ServerCredentials.createInsecure(), () => server.start());
@@ -37,35 +45,43 @@ const publish = async (event: any, type: string) => producer.send({
   topic: 'orders',
   messages: [{ key: event.payload?.orderId || event.orderId, value: JSON.stringify({ ...event, eventType: type, type }) }]
 });
+const dlqTopic = process.env.KAFKA_DLQ_TOPIC || 'orders.DLQ';
 
-await consumer.run({ eachMessage: async ({ message }) => {
+await consumer.run({ eachMessage: async ({ topic, partition, message }) => {
   if (!message.value) return;
-  const event = JSON.parse(message.value.toString());
-  const type = event.eventType || event.type;
-  if (!['OrderCreated', 'PaymentFailed'].includes(type)) return;
-  const eventId = String(event.eventId || `${type}:${event.payload?.orderId || event.orderId}`);
-  const processed = await db.query('INSERT INTO processed_events(event_id) VALUES($1) ON CONFLICT DO NOTHING', [eventId]);
-  if (processed.rowCount === 0) return;
-
-  const payload = event.payload || event;
-  const items = payload.items || [];
-  const c = await db.connect();
+  let event: any;
   try {
-    await c.query('BEGIN');
-    for (const item of items) {
-      const delta = type === 'OrderCreated' ? -item.quantity : item.quantity;
-      const condition = type === 'OrderCreated' ? ' AND stock >= $1' : '';
-      const q = await c.query(`UPDATE inventory SET stock=stock+$2 WHERE product_id=$3${condition} RETURNING product_id`, type === 'OrderCreated' ? [item.quantity, delta, item.productId] : [0, delta, item.productId]);
-      if (!q.rowCount) throw new Error(type === 'OrderCreated' ? 'insufficient stock or unknown product' : 'unknown product');
-    }
-    await c.query('COMMIT');
-    await publish(event, type === 'OrderCreated' ? 'InventoryReserved' : 'InventoryReleased');
+    event = JSON.parse(message.value.toString());
+    const type = event.eventType || event.type;
+    if (!['OrderCreated', 'PaymentFailed'].includes(type)) return;
+    const eventId = String(event.eventId || `${type}:${event.payload?.orderId || event.orderId}`);
+    const processed = await db.query('INSERT INTO processed_events(event_id) VALUES($1) ON CONFLICT DO NOTHING', [eventId]);
+    if (processed.rowCount === 0) return;
+    const payload = event.payload || event;
+    const items = payload.items || [];
+    const c = await db.connect();
+    try {
+      await c.query('BEGIN');
+      for (const item of items) {
+        const delta = type === 'OrderCreated' ? -item.quantity : item.quantity;
+        const condition = type === 'OrderCreated' ? ' AND stock >= $1' : '';
+        const values = type === 'OrderCreated' ? [item.quantity, delta, item.productId] : [0, delta, item.productId];
+        const q = await c.query(`UPDATE inventory SET stock=stock+$2 WHERE product_id=$3${condition} RETURNING product_id`, values);
+        if (!q.rowCount) throw new Error(type === 'OrderCreated' ? 'insufficient stock or unknown product' : 'unknown product');
+      }
+      await c.query('COMMIT');
+      await publish(event, type === 'OrderCreated' ? 'InventoryReserved' : 'InventoryReleased');
+    } catch (error) {
+      await c.query('ROLLBACK');
+      const reason = error instanceof Error ? error.message : String(error);
+      if (type === 'OrderCreated' && (reason.includes('insufficient stock') || reason.includes('unknown product'))) await publish(event, 'InventoryFailed');
+      else throw error;
+    } finally { c.release(); }
   } catch (error) {
-    await c.query('ROLLBACK');
-    if (type === 'OrderCreated') await publish(event, 'InventoryFailed');
-    else throw error;
-  } finally {
-    c.release();
+    await producer.send({ topic: dlqTopic, messages: [{
+      key: message.key?.toString(),
+      value: JSON.stringify({ failedAt: new Date().toISOString(), sourceTopic: topic, partition, offset: message.offset, error: error instanceof Error ? error.message : String(error), payload: message.value.toString() })
+    }] });
   }
 });
 
