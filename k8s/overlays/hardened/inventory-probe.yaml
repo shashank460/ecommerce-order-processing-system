@@ -1,0 +1,12 @@
+- op: add
+  path: /spec/template/spec/containers/0/readinessProbe
+  value:
+    tcpSocket: {port: 50051}
+    initialDelaySeconds: 10
+    periodSeconds: 10
+- op: add
+  path: /spec/template/spec/containers/0/livenessProbe
+  value:
+    tcpSocket: {port: 50051}
+    initialDelaySeconds: 20
+    periodSeconds: 20
