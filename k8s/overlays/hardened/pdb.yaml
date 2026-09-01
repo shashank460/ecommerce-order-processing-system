@@ -1,0 +1,65 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ecommerce-pdb
+  namespace: ecommerce
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: product-pdb
+  namespace: ecommerce
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: product
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-pdb
+  namespace: ecommerce
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: order
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: inventory-pdb
+  namespace: ecommerce
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: inventory
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-pdb
+  namespace: ecommerce
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: payment
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-pdb
+  namespace: ecommerce
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: notification
